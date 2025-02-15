@@ -1,9 +1,0 @@
-.checkboxClass .slds-form-element__control{
-    display: -webkit-box;
-    display: flex;
-}
-
-.radio-combo-inline .slds-form-element__control .slds-radio
-{
-    display: inline-block !important;
-}

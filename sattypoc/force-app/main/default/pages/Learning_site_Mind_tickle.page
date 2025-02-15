@@ -1,5 +1,0 @@
-<apex:page >
-  <script>
-  location.href="https://radnetprm.my.salesforce.com/idp/login?app=0spDn0000008Ofg";
-  </script>
-</apex:page>

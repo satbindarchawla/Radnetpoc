@@ -1,3 +1,0 @@
-<apex:page standardController="Competition__c" recordSetVar="comps" extensions="VF_ExportListViewAPX"
-    action="{!redirectToExportListView}">
-</apex:page>
