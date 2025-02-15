@@ -1,0 +1,22 @@
+<apex:page standardController="DH_Call_Center_Data_Sheet__c" recordSetVar="callcenterdata" tabStyle="DH_Call_Center_Data_Sheet__c" extensions="DH_DeleteDenormalizedListRecords">
+    <apex:form >
+        <Style>
+            .successText{
+            font-size: 20px;
+            font-weight:bold;
+            
+            }
+        </Style>
+        <script type="text/javascript">
+        function doRedirect(){
+            window.history.go(-2);
+        }
+        window.onload = setTimeout('doRedirect()', 5000);         
+        </script>
+    </apex:form> 
+    <Center> 
+        <div class="successText">
+            <b>Publish Batch Started Succesfully</b>
+        </div> 
+    </Center>
+</apex:page>

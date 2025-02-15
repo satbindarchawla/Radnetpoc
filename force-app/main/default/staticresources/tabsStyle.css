@@ -1,0 +1,16 @@
+.slds-tabs_default .slds-tabs_default__nav{
+    border-bottom-color: #dbdbdb;
+    border-bottom-width: 3px;
+    padding-top: 18px;
+}
+
+.slds-tabs_default .slds-tabs_default__item {
+    text-align: center;
+    /*width: -webkit-fill-available;*/
+    font-size:14px;
+}
+
+.slds-tabs_default .slds-tabs_default__item.slds-is-active {
+    background-color: white;
+   /* color: white;*/
+}
