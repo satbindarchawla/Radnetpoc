@@ -1,0 +1,17 @@
+<!--
+* ***************************************************************************************************************************
+* Aura Component Name : DH_WorkAssigned.cmp
+* Created Date : 11-September-2024
+* Function : Work Assigned UI
+* Modification Log :
+* ***************************************************************************************************************************
+* Jira#                Date                 Description
+* ***********     ******************     *****************************************************************************************
+* CC-1092         11-September-2024      Original Version
+* *****************************************************************************************************************************
+-->
+<aura:component implements="flexipage:availableForAllPageTypes" access="global" >
+    <lightning:omniToolkitAPI aura:id="omniToolkit" />  
+    <lightning:utilityBarAPI aura:id="utilitybar"/>
+    <aura:handler event="lightning:omniChannelWorkAssigned" action="{! c.onWorkAssigned }"/>
+</aura:component>

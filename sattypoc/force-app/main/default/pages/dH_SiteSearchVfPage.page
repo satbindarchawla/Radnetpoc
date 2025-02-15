@@ -1,0 +1,395 @@
+<!-- 
+************************************************************************
+Visualforce Page: dH_SiteSearchVfPage
+
+Created Date: 11 /06 / 2024
+
+@description      :   HANDLES ALL THE MAP OPERATIONS USED IN SITE SEARCH
+
+@jiraId           : CC - 232, CC - 233, CC - 946
+
+***********************************************************************
+-->
+
+<apex:page controller="DH_SiteSearchVfController">
+
+    <head>
+        <meta charset="utf-8" />
+        <title>Display distance, directions, and time</title>
+        <meta name="viewport" content="initial-scale=1,maximum-scale=1,user-scalable=no" />
+
+        <style>
+            body {
+                margin: 0;
+                padding: 0;
+            }
+
+            #info {
+                position: absolute;
+                bottom: 0;
+                width: 100%;
+                background-color: white;
+                padding: 10px;
+            }
+
+            #map {
+                position: absolute;
+                top: 0%;
+                bottom: 0%;
+                width: 100%;
+                left: 0%;
+            }
+        </style>
+
+        <!-- IMPORTING ALL THE NECESSARY STATIC RESOURCE FILES -->
+        <apex:includeScript value="{!$Resource.locationiq_maplibregljs}" />
+        <apex:stylesheet value="{!$Resource.locationiq_maplibreglcss}" />
+        <apex:includeScript value="{!$Resource.locationiq_ctrllibregljs}" />
+        <apex:stylesheet value="{!$Resource.locationiq_ctrllibreglcss}" />
+
+    </head>
+
+    <body>
+        <div id="map"></div>
+        <div id="lwcId" />
+
+        <script>
+            locationiq.key = '{!getApiKeyForHelper}'; // API KEY
+
+            // INITIALIZING MAP 
+            const map = new maplibregl.Map({
+                container: 'map',
+                style: locationiq.getLayer("Streets"),
+                center: [-122.662323, 45.523751],
+                zoom: 4
+            });
+            const nav = new maplibregl.NavigationControl({
+                showZoom: true
+            });
+
+            map.addControl(nav, 'bottom-right');
+            var customList = [];
+            var currentMarkers = [];
+            let allSites;
+            let previousRouteId;
+            var inputAddressLongitude, inputAddressLatitude, inputAddressName;
+            var autopopup = [];
+            const lexOrigin = '{!lexOrigin}';
+            const functionNameDirection = '{!functionNameDirection}';
+            const functionNameRemoveMarker = '{!functionNameRemoveMarker}';
+            const functionNameAddMarker = '{!functionNameAddMarker}';
+            const functionNameRemoveAllMarker = '{!functionNameRemoveAllMarker}';
+            const lightningAccountURL = '{!lightningAccountURL}';
+            const popupContentName = '{!popupContentName}';
+            const closeAnchorTag = '{!closeAnchorTag}';
+            const popupContentTarget = '{!popupContentTarget}';
+            const popupContentAddress = '{!popupContentAddress}';
+            const inputAddressValue = '{!inputAddressValue}';
+            const mapIdFirst = '{!mapIdFirst}';
+            const mapIdSecond = '{!mapIdSecond}';
+            const googleParameterName = '{!googleParameterName}';
+            const googleParameterDestination = '{!googleParameterDestination}';
+            const siteDotCom = '{!siteDotCom}';
+            const radnetCommPortalDetail = '{!radnetCommPortalDetail}';
+
+
+            // Event Listener
+            window.addEventListener("message", function (event) {
+                if (event.origin !== lexOrigin) {
+                    return;
+                }
+
+                if (event.data.functionName === functionNameDirection) { // showDirections if selectedcons.length == 2
+                    showDirections(event.data.parameters, event.data.routeId, event.data.selectedSiteAddresses, event.data.distance, event.data.duration);
+                }
+                else if (event.data.functionName === functionNameRemoveMarker) { // removeLayer if selectedCons.length == 1
+                    removeMarker();
+                }
+                else if (event.data.functionName === functionNameAddMarker) { // Used to add marker for input address entered by user
+                    inputAddressLongitude = event.data.Longitude;
+                    inputAddressLatitude = event.data.Latitude;
+                    inputAddressName = event.data.Address;
+                    addMarkerForInputAddress(event.data.Longitude, event.data.Latitude, event.data.Address);
+                } else if (event.data.functionName === functionNameRemoveAllMarker) { // remove all markers and clear map
+                    removeAllMarkers();
+                    removeInputAddress();
+                }
+                else {
+                    allSites = event.data;
+                    if (allSites.length > 0) {
+                        customList = [];
+                        // forming list of objects with address, name, latitude and longitude
+                        for (let index = 0; index < allSites.length; index++) {
+                            if (allSites[index].ShippingStreet !== undefined && allSites[index].ShippingState !== undefined && allSites[index].ShippingCity !== undefined && allSites[index].ShippingPostalCode !== undefined) {
+                                let address = '';
+                                address = allSites[index].ShippingStreet + ',' + allSites[index].ShippingState + ',' + allSites[index].ShippingCity + ',' + allSites[index].ShippingPostalCode;
+
+                                customList.push({ address: address, id: allSites[index].Id, name: allSites[index].Name, longitude: allSites[index].ShippingLongitude, latitude: allSites[index].ShippingLatitude });
+                            }
+                        }
+
+                        setMarkerAndPopup(customList);
+                    }
+                    else {
+                        //Remove markers
+                        if (currentMarkers !== null) {
+                            for (var i = currentMarkers.length - 1; i >= 0; i--) {
+                                currentMarkers[i].remove();
+                            }
+                        }
+                        inputAddressLongitude = null;
+                        inputAddressLatitude = null;
+                        inputAddressName = null;
+                    }
+                }
+            }, false);
+
+
+            // METHOD TO REMOVE INPUT ADDRESS FROM MAP
+            function removeInputAddress() {
+                inputAddressLongitude = null;
+                inputAddressLatitude = null;
+                inputAddressName = null;
+            }
+
+            // METHOD TO REMOVE ALL MARKERS FROM MAP 
+            function removeAllMarkers() {
+                //Remove markers
+                if (currentMarkers !== null) {
+                    for (var i = currentMarkers.length - 1; i >= 0; i--) {
+                        currentMarkers[i].remove();
+                    }
+                }
+            }
+
+            // METHOD THAT SETS MARKER ON MAP FOR DIFFERENT SITES AND ALSO ADDS POPUP DISPLAYING NAME AND ADDRESS INSIDE IT 
+            function setMarkerAndPopup(customList) {
+                removeAllMarkers();
+                let coordinatesList = [];
+                let addressCoordinatesList = [];
+                for (let index = 0; index < customList.length; index++) {
+                    if (customList[index].longitude, customList[index].latitude) {
+
+                        let recordURL;
+                        if (lexOrigin.endsWith(siteDotCom)) {// setting recordURL if guest user
+                            recordURL = lexOrigin + radnetCommPortalDetail + customList[index].id;
+                        }
+                        else {
+                            recordURL = lexOrigin + lightningAccountURL + customList[index].id + '/view';
+                        }
+
+                        var popupContent = popupContentName + recordURL + popupContentTarget + customList[index].id + closeAnchorTag + customList[index].name + '</a><br>' + popupContentAddress + customList[index].address;
+                        //console.log('popupContent : '+popupContent);
+                        var marker = new maplibregl.Marker().setLngLat([customList[index].longitude, customList[index].latitude]).addTo(map);
+                        currentMarkers.push(marker);
+                        var popup = new maplibregl.Popup({ offset: 25 }).setHTML(popupContent);
+                        marker.setPopup(popup);
+
+                        map.setCenter([customList[index].longitude, customList[index].latitude]);
+                        map.setZoom(8);
+                    }
+                }
+            }
+
+            function handleNameClick() {
+                var payload = document.getElementById('vfMessage').getAttribute("value");
+                var message = {
+                    name: "idFromVfPage",
+                    payload: payload
+                };
+                window.parent.postMessage(message, lexOrigin);
+
+                //var message = document.getElementById('vfMessage').getAttribute("value");
+                //window.parent.postMessage(message, lexOrigin);
+                console.log('Message Sent from VF Page : ' + message);
+
+            }
+
+
+            // METHOD THAT GETS CALLED WHEN ONLY ONE SITE HAS BEEN SELECTED i.e. selectedCons.length === 1 
+            function removeMarker() {
+
+                if (previousRouteId) {
+                    removelayerIfExists(previousRouteId);
+                    removeSourceIfExists(previousRouteId);
+                }
+                if (customList.length > 0) {
+                    setMarkerAndPopup(customList);
+                }
+                if (inputAddressLongitude && inputAddressLatitude && inputAddressName) {
+                    addMarkerForInputAddress(inputAddressLongitude, inputAddressLatitude, inputAddressName);
+                }
+                if (autopopup !== null) {
+                    for (let i = autopopup.length - 1; i >= 0; i--) {
+                        autopopup[i].remove();
+                    }
+                }
+            }
+
+            // METHOD THAT ADDS MARKER AND POPUP FOR INPUT ADDRESS ENTERED BY USER 
+            function addMarkerForInputAddress(longitude, latitude, address) {
+                //let popupContent = '<strong>Address:</strong>'+address;
+                let popupContent = popupContentAddress + address;
+                let markerip = new maplibregl.Marker({ "color": "#ff0000" }).setLngLat([longitude, latitude]).addTo(map);
+                let popup = new maplibregl.Popup({ offset: 25 }).setHTML(popupContent);
+                markerip.setPopup(popup);
+                currentMarkers.push(markerip);
+            }
+
+            // METHOD THAT CONVERTS DISTANCE IN METRES TO MILES 
+            function getDistanceInMiles(distanceInMetres) {
+                return distanceInMetres * 0.000621371192;
+            }
+
+            // METHOD THAT CONVERTS SECONDS TO HOUR AND MINUTES
+            function secondsToHms(seconds) {
+                seconds = Number(seconds);
+                var h = Math.floor(seconds / 3600);
+                var m = Math.floor(seconds % 3600 / 60);
+
+                var hDisplay = h > 0 ? h + (h === 1 ? " hour, " : " hours, ") : "";
+                var mDisplay = m > 0 ? m + (m === 1 ? " minute " : " minutes ") : "";
+
+                return hDisplay + mDisplay;
+            }
+
+            // THIS METHOD IS USED TO DISPLAY THE TRACK, DISTANCE AND TIME BETWEEN TWO SELECTED SITES ON THE MAP
+            function showDirections(coordinates, routeId, selectedSiteAddresses, distance, duration) {
+                let long = coordinates[0][0];
+                let lat = coordinates[0][1];
+                //set the mapcenter to the starting point of the given address
+                map.setCenter([long, lat]);
+
+                if (previousRouteId) {
+                    removelayerIfExists(previousRouteId);
+                }
+                previousRouteId = routeId;
+
+                //set the gejson location
+                const geojson = {
+                    type: 'Feature',
+                    properties: {},
+                    geometry: {
+                        type: 'LineString',
+                        coordinates: coordinates
+                    }
+                };
+
+                //add the line to the path from source to destination.
+                map.addLayer({
+                    id: routeId,
+                    type: 'line',
+                    source: {
+                        type: 'geojson',
+                        data: geojson
+                    },
+                    layout: {
+                        'line-join': 'round',
+                        'line-cap': 'round'
+                    },
+                    paint: {
+                        'line-color': '#FF0000',
+                        'line-width': 5,
+                        'line-opacity': 0.75
+                    }
+                });
+
+                // remove all previous markers from the map
+                if (currentMarkers !== null) {
+                    for (var i = currentMarkers.length - 1; i >= 0; i--) {
+                        currentMarkers[i].remove();
+                    }
+                }
+
+                // add source and destination marker and popup
+                // source -                 
+                if (selectedSiteAddresses[0].id === inputAddressValue || selectedSiteAddresses[0].id === mapIdFirst || selectedSiteAddresses[0].id === mapIdSecond) { //input map markers
+                    let popupContentsrc = popupContentAddress + selectedSiteAddresses[0].address;
+                    let markersrc = new maplibregl.Marker({ "color": "#ff0000" }).setLngLat([long, lat]).addTo(map);
+                    let popupsrc = new maplibregl.Popup({ offset: 25 }).setHTML(popupContentsrc);
+                    markersrc.setPopup(popupsrc);
+                    currentMarkers.push(markersrc);
+                }
+                else {
+                    let recordURL;
+                    if (lexOrigin.endsWith(siteDotCom)) { // setting recordURL if guest user
+                        recordURL = lexOrigin + radnetCommPortalDetail + selectedSiteAddresses[0].id;
+                    }
+                    else {
+                        recordURL = lexOrigin + lightningAccountURL + selectedSiteAddresses[0].id + '/view';
+                    }
+                    let popupContentsrc = popupContentName + recordURL + popupContentTarget + selectedSiteAddresses[0].id + closeAnchorTag + selectedSiteAddresses[0].name + '</a><br>' + popupContentAddress + selectedSiteAddresses[0].address;
+                    let markersrc = new maplibregl.Marker({ "color": "#ff0000" }).setLngLat([long, lat]).addTo(map);
+                    let popupsrc = new maplibregl.Popup({ offset: 25 }).setHTML(popupContentsrc);
+                    markersrc.setPopup(popupsrc);
+                    currentMarkers.push(markersrc);
+                }
+
+                // destination -
+                let destlat = coordinates[coordinates.length - 1][1];
+                let destlang = coordinates[coordinates.length - 1][0];
+                let marker = new maplibregl.Marker().setLngLat([destlang, destlat]).addTo(map);
+                let recordURL;
+                if (lexOrigin.endsWith(siteDotCom)) { // setting recordURL if guest user
+                    recordURL = lexOrigin + radnetCommPortalDetail + selectedSiteAddresses[1].id;
+                }
+                else {
+                    recordURL = lexOrigin + lightningAccountURL + selectedSiteAddresses[1].id + '/view';
+                }
+                let popupContent;
+                if (selectedSiteAddresses.length === 2 && (selectedSiteAddresses[1].id === mapIdFirst || selectedSiteAddresses[1].id === mapIdSecond)) {
+                    popupContent = popupContentAddress + selectedSiteAddresses[1].address;
+                }
+                else {
+                    popupContent = popupContentName + recordURL + popupContentTarget + selectedSiteAddresses[1].id + closeAnchorTag + selectedSiteAddresses[1].name + '</a><br>' + popupContentAddress + selectedSiteAddresses[1].address;
+                }
+                let popupdest = new maplibregl.Popup({ offset: 25 }).setHTML(popupContent);
+
+                marker.setPopup(popupdest);
+                let popup = new maplibregl.Popup({ offset: 25 }).setHTML();
+                let distanceInMiles = getDistanceInMiles(distance);
+                let durationInHms = secondsToHms(duration);
+                let carIconSvg = '{!$Label.DH_Car_Icon}';
+                let googleMapsBaseURL = '{!$Label.GoogleMapsBaseURL}'; // FROM CUSTOM LABEL
+                let googleLink = googleMapsBaseURL + googleParameterName + encodeURIComponent(selectedSiteAddresses[0].address) + googleParameterDestination + encodeURIComponent(selectedSiteAddresses[1].address); // LINK THAT OPENS GOOGLE MAP ON ANOTHER BROWSER PAGE WITH THE TWO SELECTED ADDRESSES
+                let popupHTML = `
+                                <div style="display: flex; align-items: center;">
+                                    ${carIconSvg} &nbsp;
+                                    <span> ${durationInHms} </span><br>
+                                </div>
+                                <div> &nbsp; &nbsp; &nbsp; &nbsp; ${distanceInMiles.toFixed(2)} miles</div>
+                                <div><a href="${googleLink}" target="_blank">Google Maps</a><div>
+                                    `;
+                currentMarkers.push(marker);
+
+                // On mouse enter event popup is being set
+                map.on('mouseenter', routeId, (e) => {
+                    popup.setLngLat(e.lngLat).setHTML(popupHTML).addTo(map);
+                });
+                autopopup.push(popup);
+
+                // On mouse leave event popup is being removed
+                map.on('mouseleave', 'places', () => {
+                    map.getCanvas().style.cursor = '';
+                    popup.remove();
+                });
+            }
+
+            // METHOD THAT IS USED TO REMOVE LAYER OF MAP
+            function removelayerIfExists(layerId) {
+                const maplayer = map.getLayer(layerId);
+                if (maplayer) {
+                    map.removeLayer(layerId);
+                }
+            }
+
+            // METHOD THAT REMOVES SOURCE SITE FROM MAP
+            function removeSourceIfExists(layerId) {
+                const mapSource = map.getSource(layerId);
+                if (mapSource) {
+                    map.removeSource(layerId);
+                }
+            }
+        </script>
+    </body>
+</apex:page>

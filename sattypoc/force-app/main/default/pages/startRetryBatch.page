@@ -1,0 +1,10 @@
+<apex:page standardController="DH_PayloadData__c" recordSetVar="retryData" tabStyle="DH_PayloadData__c" extensions="DH_MarkForRetryListRecords" action="{!startBatchNow}" >
+    <apex:form >
+        <script type="text/javascript">
+        function doRedirect(){
+            window.history.back();
+        }
+        window.onload = doRedirect;
+        </script>
+    </apex:form>
+</apex:page>

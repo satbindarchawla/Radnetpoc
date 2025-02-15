@@ -1,0 +1,5 @@
+<apex:page showHeader="false" showChat="false" sidebar="true">
+  <apex:pageBlock >      
+      <apex:iframe src="{!$CurrentPage.parameters.id}"></apex:iframe>
+  </apex:pageBlock> 
+</apex:page>

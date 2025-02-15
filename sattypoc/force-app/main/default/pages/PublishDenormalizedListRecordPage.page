@@ -1,0 +1,11 @@
+<apex:page standardController="DH_Call_Center_Data_Sheet__c" recordSetVar="callcenterdata" tabStyle="DH_Call_Center_Data_Sheet__c" extensions="DH_PublishDenormalizedListRecords" action="{!CallUpdateStatus}" >
+    <apex:form >
+            <script type="text/javascript">
+            function doRedirect(){
+                window.history.back();
+            }
+         window.onload = setTimeout('doRedirect()', 5000);         
+     </script>
+    </apex:form>
+   <center><b><apex:messages style="font-size:25px;"/></b></center>
+    </apex:page>

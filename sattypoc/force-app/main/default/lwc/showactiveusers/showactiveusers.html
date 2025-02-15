@@ -1,0 +1,77 @@
+<template>
+    <lightning-card title="User Activation and Deactivation Status">
+        <!-- Dropdown to select User Status (Active or Deactivated) -->
+        <lightning-combobox
+            label="Select User Status"
+            value={isActive}
+            options={userStatusOptions}
+            onchange={handleUserStatusChange}>
+        </lightning-combobox>
+
+        <!-- Dynamic Label based on isActive -->
+        <template if:true={isActive}>
+            <h3>Active Users (Created via JIT)</h3>
+        </template>
+        <template if:false={isActive}>
+            <h3>Deactivated Users</h3>
+        </template>
+
+
+        <!-- Display Active Users when isActive is true -->
+        <template if:true={isActive}>
+            <template if:true={users}>
+                <table class="slds-table slds-table_bordered">
+                    <thead>
+                        <tr>
+                            <th scope="col">Username</th>
+                            <th scope="col">Modified By</th>
+                            <th scope="col">Modified Date</th>
+                            <th scope="col">Is Active</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template for:each={users} for:item="user">
+                            <tr key={user.Id}>
+                                <td>{user.Name}</td>
+                                <td>{user.LastModifiedBy.Name}</td>
+                                <td>{user.LastModifiedDate}</td>
+                                <td>{user.IsActive}</td> <!-- Directly show true/false -->
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </template>
+        </template>
+
+        <!-- Display Deactivated Users when isActive is false -->
+        <template if:false={isActive}>
+            <template if:true={users}>
+                <table class="slds-table slds-table_bordered">
+                    <thead>
+                        <tr>
+                            <th scope="col">Username</th>
+                            <th scope="col">Modified By</th>
+                            <th scope="col">Modified Date</th>
+                            <th scope="col">Is Active</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <template for:each={users} for:item="user">
+                            <tr key={user.Id}>
+                                <td>{user.Name}</td>
+                                <td>{user.LastModifiedBy.Name}</td>
+                                <td>{user.LastModifiedDate}</td>
+                                <td>{user.IsActive}</td> <!-- Directly show true/false -->
+                            </tr>
+                        </template>
+                    </tbody>
+                </table>
+            </template>
+        </template>
+
+        <!-- Error Handling -->
+        <template if:true={error}>
+            <p class="slds-text-color_error">Error: {error}</p>
+        </template>
+    </lightning-card>
+</template>
