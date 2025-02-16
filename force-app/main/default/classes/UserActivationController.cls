@@ -1,21 +1,23 @@
 public with sharing class UserActivationController {
 
-    // Fetch users based on JIT_Status__c (TRUE or FALSE) and IsActive status
+    // Fetch users based on the selected status
     @AuraEnabled(cacheable=true)
-    public static List<User> getUsersByJITStatus(Boolean jitStatus) {
+    public static List<User> getUsersByStatus(Boolean isActive) {
         List<User> users;
         
-        // If JIT Status is true, fetch active users created via JIT
-        if (jitStatus) {
-            users = [SELECT Id, Name, JIT_Status__c, IsActive 
+        // Fetch active users (IsActive = TRUE and JIT_Status__c = TRUE)
+        if (isActive) {
+            users = [SELECT Id, Name, JIT_Status__c, IsActive, 
+                            LastModifiedBy.Name, LastModifiedDate 
                      FROM User 
-                     WHERE JIT_Status__c = TRUE AND IsActive = TRUE];
+                     WHERE IsActive = TRUE AND JIT_Status__c = TRUE];
         } 
-        // If JIT Status is false, fetch deactivated users (JIT Status is false and IsActive is false)
+        // Fetch deactivated users (IsActive = FALSE and JIT_Status__c = FALSE)
         else {
-            users = [SELECT Id, Name, JIT_Status__c, IsActive 
+            users = [SELECT Id, Name, JIT_Status__c, IsActive, 
+                            LastModifiedBy.Name, LastModifiedDate 
                      FROM User 
-                     WHERE JIT_Status__c = FALSE AND IsActive = FALSE];
+                     WHERE IsActive = FALSE AND JIT_Status__c = FALSE];
         }
         
         return users;
